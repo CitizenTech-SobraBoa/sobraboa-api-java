@@ -1,12 +1,14 @@
 package br.com.fiap.sobraboaapi.usuario;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.OffsetDateTime;
 
 @Entity
-@Data
+@Getter
+@Setter
 @Table(name = "usuario")
 public class Usuario {
 
@@ -23,4 +25,12 @@ public class Usuario {
     private OffsetDateTime criadoEm = OffsetDateTime.now();
     private OffsetDateTime atualizadoEm = OffsetDateTime.now();
     private OffsetDateTime deletadoEm;
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof Usuario outra && getId() != null && getId().equals(outra.getId());
+    }
+
+    @Override
+    public int hashCode() { return getClass().hashCode(); }
 }

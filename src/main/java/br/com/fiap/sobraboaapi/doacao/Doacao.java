@@ -4,14 +4,16 @@ import br.com.fiap.sobraboaapi.doacaoitem.DoacaoItem;
 import br.com.fiap.sobraboaapi.doador.Doador;
 import br.com.fiap.sobraboaapi.endereco.Endereco;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Data
+@Getter
+@Setter
 @Table(name = "doacao")
 public class Doacao {
     @Id
@@ -37,4 +39,12 @@ public class Doacao {
 
     @OneToMany(mappedBy = "doacao", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DoacaoItem> itens = new ArrayList<>();
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof Doacao outra && getId() != null && getId().equals(outra.getId());
+    }
+
+    @Override
+    public int hashCode() { return getClass().hashCode(); }
 }

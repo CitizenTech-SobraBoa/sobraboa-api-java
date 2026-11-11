@@ -4,12 +4,14 @@ import br.com.fiap.sobraboaapi.endereco.Endereco;
 import br.com.fiap.sobraboaapi.shared.StatusAprovacao;
 import br.com.fiap.sobraboaapi.usuario.Usuario;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.OffsetDateTime;
 
 @Entity
-@Data
+@Getter
+@Setter
 @Table(name = "doador")
 public class Doador {
 
@@ -31,4 +33,12 @@ public class Doador {
     @Enumerated(EnumType.STRING) private StatusAprovacao statusAprovacao = StatusAprovacao.PENDENTE;
     private Long aprovadoPor;
     private OffsetDateTime aprovadoEm;
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof Doador outro && getUsuarioId() != null && getUsuarioId().equals(outro.getUsuarioId());
+    }
+
+    @Override
+    public int hashCode() { return getClass().hashCode(); }
 }

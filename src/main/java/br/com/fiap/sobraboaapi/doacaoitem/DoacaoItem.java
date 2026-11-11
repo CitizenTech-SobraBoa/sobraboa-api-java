@@ -3,8 +3,9 @@ package br.com.fiap.sobraboaapi.doacaoitem;
 import br.com.fiap.sobraboaapi.categoria.CategoriaAlimento;
 import br.com.fiap.sobraboaapi.doacao.Doacao;
 import jakarta.persistence.*;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.ToString;
 
 import java.math.BigDecimal;
@@ -12,7 +13,8 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 @Entity
-@Data
+@Getter
+@Setter
 @Table(name = "doacao_item")
 public class DoacaoItem {
 
@@ -33,4 +35,12 @@ public class DoacaoItem {
     private BigDecimal pesoEstimadoKg;
     private LocalDate dataValidade;
     private OffsetDateTime preparadoEm;
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof DoacaoItem outra && getId() != null && getId().equals(outra.getId());
+    }
+
+    @Override
+    public int hashCode() { return getClass().hashCode(); }
 }

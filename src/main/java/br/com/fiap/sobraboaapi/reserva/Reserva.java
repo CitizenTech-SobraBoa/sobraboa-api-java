@@ -3,12 +3,14 @@ package br.com.fiap.sobraboaapi.reserva;
 import br.com.fiap.sobraboaapi.doacao.Doacao;
 import br.com.fiap.sobraboaapi.receptor.Receptor;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.OffsetDateTime;
 
 @Entity
-@Data
+@Getter
+@Setter
 @Table(name = "reserva")
 public class Reserva {
 
@@ -29,4 +31,12 @@ public class Reserva {
     private OffsetDateTime retiradaEm;
     private OffsetDateTime recebidaEm;
     private String motivoCancelamento;
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof Reserva outra && getId() != null && getId().equals(outra.getId());
+    }
+
+    @Override
+    public int hashCode() { return getClass().hashCode(); }
 }

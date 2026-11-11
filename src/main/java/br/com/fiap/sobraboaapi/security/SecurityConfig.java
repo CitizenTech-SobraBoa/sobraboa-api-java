@@ -38,19 +38,27 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(a -> a
-                        .requestMatchers("/api/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        // públicos
+                        .requestMatchers("/api/auth/**", "/v3/api-docs/**", "/swagger-ui/**",
+                                "/swagger-ui.html", "/actuator/health/**").permitAll()
+
+                        // ADMIN
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/doacoes/proximas", "/api/reservas/*/receber",
-                                "/api/reservas/minhas", "/api/doacoes/*/reservas").hasRole("RECEPTOR")
+
+                        // DOADOR
                         .requestMatchers(HttpMethod.POST, "/api/doacoes", "/api/doacoes/assistente").hasRole("DOADOR")
-                        .requestMatchers("/api/doacoes/minhas", "/api/reservas/*/retirada").hasRole("DOADOR")
                         .requestMatchers(HttpMethod.PUT, "/api/doacoes/*").hasRole("DOADOR")
                         .requestMatchers(HttpMethod.PATCH, "/api/doacoes/*/publicar").hasRole("DOADOR")
                         .requestMatchers(HttpMethod.DELETE, "/api/doacoes/*").hasRole("DOADOR")
-                        .requestMatchers("/api/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html",
-                                "/actuator/health/**").permitAll()
-                        .requestMatchers("/api/doacoes/proximas", "/api/reservas/*/receber",
-                                "/api/reservas/*/cancelar", "/api/reservas/minhas", "/api/doacoes/*/reservas").hasRole("RECEPTOR")
+                        .requestMatchers(HttpMethod.GET, "/api/doacoes/minhas").hasRole("DOADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/reservas/*/retirada").hasRole("DOADOR")
+
+                        // RECEPTOR
+                        .requestMatchers(HttpMethod.GET, "/api/doacoes/proximas", "/api/reservas/minhas").hasRole("RECEPTOR")
+                        .requestMatchers(HttpMethod.POST, "/api/doacoes/*/reservas",
+                                "/api/reservas/*/receber", "/api/reservas/*/cancelar").hasRole("RECEPTOR")
+
+                        // o resto exige apenas login
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint((req, res, ex) -> erro(res, 401, "Token ausente ou inválido", req))

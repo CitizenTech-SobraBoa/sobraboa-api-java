@@ -37,14 +37,14 @@ services:
         condition: service_healthy
     ports: ["8080:8080"]
     environment:
-      SPRING_PROFILES_ACTIVE: prod,demo        # demo = carrega dados de demonstracao
+      SPRING_PROFILES_ACTIVE: ${API_PROFILES:-prod}       # prod, demo = carrega dados de demonstracao
       DB_URL: jdbc:postgresql://postgres:5432/sobraboa
       DB_USER: sobraboa
       DB_PASSWORD: sobraboa
       RABBITMQ_HOST: rabbitmq
-      JWT_SECRET: ${JWT_SECRET:-segredo-local-de-demonstracao-troque-no-env-min-32}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env (minimo 32 caracteres)}
+      ADMIN_SENHA: ${ADMIN_SENHA:?defina ADMIN_SENHA no .env}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@sobraboa.com}
-      ADMIN_SENHA: ${ADMIN_SENHA:-Admin@12345}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-sem-chave-configurada}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
       SWAGGER_ENABLED: "true"

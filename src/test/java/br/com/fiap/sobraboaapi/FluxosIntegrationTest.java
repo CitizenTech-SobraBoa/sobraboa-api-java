@@ -1,5 +1,7 @@
 package br.com.fiap.sobraboaapi;
 
+import br.com.fiap.sobraboaapi.ia.SugestaoDoacao;
+import br.com.fiap.sobraboaapi.ia.SugestaoGateway;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -14,11 +16,15 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.startsWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -36,6 +42,9 @@ class FluxosIntegrationTest {
 
     @Autowired MockMvc mvc;
     @MockitoBean RabbitTemplate rabbit;
+
+    @MockitoBean
+    SugestaoGateway gateway;
 
     @Value("${app.admin.email}") String adminEmail;
     @Value("${app.admin.senha}") String adminSenha;
@@ -278,6 +287,80 @@ class FluxosIntegrationTest {
                 {"titulo":"Pães do dia","descricao":"Sobra do fim do expediente",
                  "janelaInicio":"%s","janelaFim":"%s","requerRefrigeracao":false,
                  "itens":[{"categoriaId":1,"descricao":"Pão francês","quantidade":30,"unidade":"UN","pesoEstimadoKg":1.5}]}"""
+                .formatted(agora.minusHours(1), agora.plusHours(3));
+    }
+
+    @Test
+    void receptorNaoVeRascunhoDeOutroDoador() throws Exception {
+        String admin = login(adminEmail, adminSenha);
+        String emailDoador = registrarDoador();
+        String emailReceptor = registrarReceptor();
+        aprovar(admin, "doadores", idPorLogin(emailDoador));
+        aprovar(admin, "receptores", idPorLogin(emailReceptor));
+        String tDoador = login(emailDoador, "Senha@123");
+        String tReceptor = login(emailReceptor, "Senha@123");
+
+        Integer id = JsonPath.read(mvc.perform(post("/api/doacoes").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + tDoador).content(doacaoJson()))
+                .andReturn().getResponse().getContentAsString(), "$.id");   // continua RASCUNHO
+
+        mvc.perform(get("/api/doacoes/" + id).header("Authorization", "Bearer " + tReceptor))
+                .andExpect(status().isNotFound());
+        mvc.perform(get("/api/doacoes/" + id).header("Authorization", "Bearer " + tDoador))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void assistenteCriaRascunhoAPartirDoTexto() throws Exception {
+        when(gateway.sugerir(any(), any(), any())).thenReturn(new SugestaoDoacao(
+                "Pães do dia", "Sobra do expediente", false, null,
+                List.of(new SugestaoDoacao.ItemSugerido("Pão francês", "Pães e massas",
+                        new BigDecimal("30"), "UN", new BigDecimal("1.5"), null))));
+
+        mvc.perform(post("/api/doacoes/assistente").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + tokenDoadorAprovado())
+                        .content(assistenteJson()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("RASCUNHO"))
+                .andExpect(jsonPath("$.itens[0].categoria").value("Pães e massas"));
+    }
+
+    @Test
+    void assistenteSemTituloUsaOTextoComoTitulo() throws Exception {
+        when(gateway.sugerir(any(), any(), any())).thenReturn(new SugestaoDoacao(
+                null, null, false, null,
+                List.of(new SugestaoDoacao.ItemSugerido("Pão", "Categoria que não existe",
+                        null, "xyz", null, null))));
+
+        mvc.perform(post("/api/doacoes/assistente").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + tokenDoadorAprovado())
+                        .content(assistenteJson()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.titulo").value(org.hamcrest.Matchers.startsWith("Sobraram")))
+                .andExpect(jsonPath("$.itens[0].categoria").value("Outros"));   // categoria desconhecida cai em "Outros"
+    }
+
+    @Test
+    void iaForaDoArRetorna503() throws Exception {
+        when(gateway.sugerir(any(), any(), any())).thenThrow(new RuntimeException("timeout"));
+
+        mvc.perform(post("/api/doacoes/assistente").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + tokenDoadorAprovado())
+                        .content(assistenteJson()))
+                .andExpect(status().isServiceUnavailable());
+    }
+
+    // ---- helpers novos ----
+    private String tokenDoadorAprovado() throws Exception {
+        String email = registrarDoador();
+        aprovar(login(adminEmail, adminSenha), "doadores", idPorLogin(email));
+        return login(email, "Senha@123");
+    }
+
+    private String assistenteJson() {
+        OffsetDateTime agora = OffsetDateTime.now();
+        return """
+            {"texto":"Sobraram 30 pães franceses hoje","janelaInicio":"%s","janelaFim":"%s"}"""
                 .formatted(agora.minusHours(1), agora.plusHours(3));
     }
 }

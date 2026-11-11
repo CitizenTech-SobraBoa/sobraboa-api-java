@@ -9,8 +9,8 @@ import br.com.fiap.sobraboaapi.doacaoitem.ItemRequest;
 import br.com.fiap.sobraboaapi.doacaoitem.UnidadeMedida;
 import br.com.fiap.sobraboaapi.exception.IaIndisponivelException;
 import br.com.fiap.sobraboaapi.exception.RegraNegocioException;
+import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -22,25 +22,19 @@ import java.util.stream.Collectors;
 @Slf4j
 public class AssistenteDoacaoService {
 
-    private final ChatClient chat;
     private final CategoriaAlimentoRepository categoriaRepo;
     private final DoacaoService doacaoService;
+    private final Validator validator;
+    private final SugestaoGateway gateway;
 
-    public AssistenteDoacaoService(ChatClient.Builder builder,
-                                   CategoriaAlimentoRepository categoriaRepo,
-                                   DoacaoService doacaoService) {
+    public AssistenteDoacaoService(CategoriaAlimentoRepository categoriaRepo,
+                                   DoacaoService doacaoService,
+                                   Validator validator,
+                                   SugestaoGateway gateway) {
         this.categoriaRepo = categoriaRepo;
         this.doacaoService = doacaoService;
-        this.chat = builder
-                .defaultSystem("""
-                        Você é o assistente do SobraBoa, plataforma que conecta comércios com sobra de alimentos
-                        a organizações que combatem a fome. Converta a descrição livre do doador em dados
-                        estruturados de uma doação. Regras: use somente categorias da lista fornecida;
-                        nunca invente validade (use null se o texto não disser); marque refrigeração
-                        quando houver prato pronto, laticínio, carne ou peixe; escreva em português do Brasil,
-                        com tom objetivo; não faça promessas sobre a qualidade do alimento.
-                        """)
-                .build();
+        this.validator = validator;
+        this.gateway = gateway;
     }
 
     public DoacaoResponse criarRascunho(AssistenteDoacaoRequest req, Long doadorId) {
@@ -49,19 +43,7 @@ public class AssistenteDoacaoService {
 
         SugestaoDoacao sugestao;
         try {
-            sugestao = chat.prompt()
-                    .user(u -> u.text("""
-                            Data de hoje: {hoje}
-                            Categorias permitidas: {categorias}
-
-                            Descrição do doador:
-                            {texto}
-                            """)
-                            .param("hoje", LocalDate.now().toString())
-                            .param("categorias", nomes)
-                            .param("texto", req.texto()))
-                    .call()
-                    .entity(SugestaoDoacao.class);
+            sugestao = gateway.sugerir(req.texto(), LocalDate.now().toString(), nomes);
         } catch (Exception e) {
             throw new IaIndisponivelException("O assistente de IA está indisponível no momento. Cadastre a doação manualmente.", e);
         }
@@ -73,20 +55,28 @@ public class AssistenteDoacaoService {
         List<ItemRequest> itens = sugestao.itens().stream().map(i -> new ItemRequest(
                 categorias.stream().filter(c -> c.getNome().equalsIgnoreCase(i.categoria()))
                         .findFirst().orElse(outros).getId(),
-                i.descricao(),
+                i.descricao() == null || i.descricao().isBlank()
+                        ? "Item sem descrição" : limitar(i.descricao(), 200),     // passo 2
                 i.quantidade() == null || i.quantidade().signum() <= 0 ? BigDecimal.ONE : i.quantidade(),
                 unidade(i.unidade()),
                 i.pesoEstimadoKg(),
                 i.dataValidade(),
                 null)).toList();
 
+        String titulo = (sugestao.titulo() == null || sugestao.titulo().isBlank())   // passo 3
+                ? limitar(req.texto().trim(), 60)
+                : sugestao.titulo();
+
         DoacaoRequest doacao = new DoacaoRequest(
-                limitar(sugestao.titulo(), 150), sugestao.descricao(),
+                limitar(titulo, 150), sugestao.descricao(),
                 req.janelaFim(), req.janelaInicio(),
                 sugestao.requerRefrigeracao(), limitar(sugestao.instrucoesRetirada(), 500),
                 null, null, itens);
 
-        // Cria como RASCUNHO: o doador revisa e publica depois (human-in-the-loop)
+        if (!validator.validate(doacao).isEmpty())                                   // passo 4
+            throw new RegraNegocioException(
+                    "A IA não conseguiu montar uma doação válida. Descreva melhor ou cadastre manualmente.");
+
         return doacaoService.criar(doacao, doadorId);
     }
 

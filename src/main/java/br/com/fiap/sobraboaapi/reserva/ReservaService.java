@@ -158,7 +158,7 @@ public class ReservaService {
     }
 
     private void publicar(String tipo, Reserva r) {
-        eventos.publishEvent(new DoacaoEvento(tipo, r.getDoacao().getId(), r.getId(),
+        eventos.publishEvent(new DoacaoEvento(UUID.randomUUID(), tipo, r.getDoacao().getId(), r.getId(),
                 r.getDoacao().getDoador().getUsuarioId(), r.getReceptor().getUsuarioId(),
                 r.getDoacao().getTitulo(), Instant.now()));
     }

@@ -1,26 +1,46 @@
 package br.com.fiap.sobraboaapi.messaging;
 
+import br.com.fiap.sobraboaapi.notificacao.Notificacao;
+import br.com.fiap.sobraboaapi.notificacao.NotificacaoRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
+@RequiredArgsConstructor
 @Slf4j
 public class NotificacaoConsumer {
 
+    private final NotificacaoRepository repo;
+
     @RabbitListener(queues = RabbitConfig.FILA_NOTIFICACOES)
+    @Transactional
     public void receber(DoacaoEvento e) {
-        // No MVP o "aviso" é um log. Evolua para e-mail (JavaMailSender) ou push para o app Mobile.
         switch (e.tipo()) {
-            case "DOACAO_RESERVADA" ->
-                    log.info("[AVISO] Doador {}: sua doação '{}' foi reservada pelo receptor {}.", e.doadorId(), e.titulo(), e.receptorId());
-            case "RETIRADA_CONFIRMADA" ->
-                    log.info("[AVISO] Receptor {}: retirada de '{}' confirmada.", e.receptorId(), e.titulo());
-            case "DOACAO_CONCLUIDA" ->
-                    log.info("[AVISO] Doação '{}' concluída. Comprovante disponível.", e.titulo());
-            case "RESERVA_CANCELADA" ->
-                    log.info("[AVISO] Doador {}: a reserva de '{}' foi cancelada; a doação voltou a ficar disponível.", e.doadorId(), e.titulo());
+            case "DOACAO_RESERVADA" -> salvar(e, e.doadorId(),
+                    "Sua doação '%s' foi reservada.".formatted(e.titulo()));
+            case "RETIRADA_CONFIRMADA" -> salvar(e, e.receptorId(),
+                    "A retirada de '%s' foi confirmada.".formatted(e.titulo()));
+            case "DOACAO_CONCLUIDA" -> {
+                salvar(e, e.doadorId(), "A doação '%s' foi concluída.".formatted(e.titulo()));
+                salvar(e, e.receptorId(), "O recebimento de '%s' foi confirmado.".formatted(e.titulo()));
+            }
+            case "RESERVA_CANCELADA" -> salvar(e, e.doadorId(),
+                    "A reserva de '%s' foi cancelada; a doação voltou a ficar disponível.".formatted(e.titulo()));
             default -> log.warn("Evento desconhecido: {}", e.tipo());
         }
+    }
+
+    private void salvar(DoacaoEvento e, Long usuarioId, String mensagem) {
+        if (repo.existsByEventoIdAndUsuarioId(e.eventoId(), usuarioId)) return;   // mensagem repetida: ignora
+        Notificacao n = new Notificacao();
+        n.setEventoId(e.eventoId());
+        n.setUsuarioId(usuarioId);
+        n.setTipo(e.tipo());
+        n.setMensagem(mensagem);
+        repo.save(n);
+        log.info("[AVISO] usuário {}: {}", usuarioId, mensagem);
     }
 }

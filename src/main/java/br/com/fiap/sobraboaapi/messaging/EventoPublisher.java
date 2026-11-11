@@ -2,6 +2,7 @@ package br.com.fiap.sobraboaapi.messaging;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -15,8 +16,11 @@ public class EventoPublisher {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void aoOcorrer(DoacaoEvento e) {
-        String routingKey = "doacao." + e.tipo().toLowerCase();
-        rabbit.convertAndSend(RabbitConfig.EXCHANGE, routingKey, e);
-        log.info("Evento publicado: {} (doação {})", e.tipo(), e.doacaoId());
+        try {
+            rabbit.convertAndSend(RabbitConfig.EXCHANGE, "doacao." + e.tipo().toLowerCase(), e);
+            log.info("Evento publicado: {} (doação {})", e.tipo(), e.doacaoId());
+        } catch (AmqpException ex) {
+            log.error("Falha ao publicar {} (doação {}). Avisos podem se perder.", e.tipo(), e.doacaoId(), ex);
+        }
     }
 }

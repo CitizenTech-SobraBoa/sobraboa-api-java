@@ -41,7 +41,9 @@ public class DoacaoController {
     }
 
     @GetMapping("/{id}")
-    public DoacaoResponse buscar(@PathVariable Long id) { return service.buscar(id); }
+    public DoacaoResponse buscar(@PathVariable Long id, @AuthenticationPrincipal UsuarioLogado u) {
+        return service.buscar(id, u);
+    }
 
     @GetMapping("/minhas")
     public Page<DoacaoResponse> minhas(@ParameterObject Pageable p, @AuthenticationPrincipal UsuarioLogado u) {

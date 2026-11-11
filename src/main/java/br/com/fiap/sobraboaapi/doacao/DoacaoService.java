@@ -11,6 +11,8 @@ import br.com.fiap.sobraboaapi.exception.RecursoNaoEncontradoException;
 import br.com.fiap.sobraboaapi.exception.RegraNegocioException;
 import br.com.fiap.sobraboaapi.historico.DoacaoStatusHistorico;
 import br.com.fiap.sobraboaapi.historico.DoacaoStatusHistoricoRepository;
+import br.com.fiap.sobraboaapi.reserva.ReservaRepository;
+import br.com.fiap.sobraboaapi.security.UsuarioLogado;
 import br.com.fiap.sobraboaapi.shared.StatusAprovacao;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -29,6 +31,7 @@ public class DoacaoService {
     private final EnderecoRepository enderecoRepo;
     private final CategoriaAlimentoRepository categoriaRepo;
     private final DoacaoStatusHistoricoRepository historicoRepo;
+    private final ReservaRepository reservaRepo;
 
     @Transactional
     public DoacaoResponse criar(DoacaoRequest r, Long doadorId) {
@@ -41,9 +44,19 @@ public class DoacaoService {
     }
 
     @Transactional(readOnly = true)
-    public DoacaoResponse buscar(Long id) {
-        return DoacaoResponse.de(doacaoRepo.findById(id)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Doação não encontrada")));
+    public DoacaoResponse buscar(Long id, UsuarioLogado u) {
+        Doacao d = doacaoRepo.findById(id)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Doação não encontrada"));
+
+        boolean admin = "ADMIN".equals(u.papel());
+        boolean dono = d.getDoador().getUsuarioId().equals(u.id());
+        boolean publica = d.getStatus() == StatusDoacao.DISPONIVEL;
+        boolean participante = reservaRepo.existsByDoacaoIdAndReceptorUsuarioId(id, u.id());
+
+        if (!(admin || dono || publica || participante))
+            throw new RecursoNaoEncontradoException("Doação não encontrada");
+
+        return DoacaoResponse.de(d);
     }
 
     @Transactional(readOnly = true)

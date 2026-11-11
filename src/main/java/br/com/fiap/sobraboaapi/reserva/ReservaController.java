@@ -1,6 +1,9 @@
 package br.com.fiap.sobraboaapi.reserva;
 
 import br.com.fiap.sobraboaapi.security.UsuarioLogado;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -19,8 +22,17 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Reservas")
 @SecurityRequirement(name = "bearerAuth")
 public class ReservaController {
+
     private final ReservaService service;
 
+    @Operation(summary = "Reserva uma doação disponível",
+            description = "Apenas RECEPTOR aprovado. Gera o código de retirada.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Reserva criada"),
+            @ApiResponse(responseCode = "403", description = "Papel inválido ou cadastro não aprovado"),
+            @ApiResponse(responseCode = "409", description = "Doação já reservada"),
+            @ApiResponse(responseCode = "422", description = "Fora da janela ou exige refrigeração")
+    })
     @PostMapping("/doacoes/{id}/reservas")
     public ResponseEntity<ReservaResponse> reservar(@PathVariable Long id, @AuthenticationPrincipal UsuarioLogado u) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.reservar(id, u.id()));

@@ -41,8 +41,7 @@ public class OpenApiConfig {
                         )
                         .version("1.0.0")
                         .contact(new Contact()
-                                .name("Pedro Vaz, João Victor, Vitor Dias & Felipe Modesto")
-                                .name("CitizenTech"))
+                                .name("Pedro Vaz, João Victor, Vitor Dias & Felipe Modesto — CitizenTech"))
                         .license(new License().name("FIAP — Global Solution 2026/2")));
     }
 }

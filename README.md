@@ -6,7 +6,7 @@ Global Solution 2026/2 — CitizenTech — FIAP | Java Advanced
 > A API roda no plano gratuito do Render e "dorme" após cerca de 15 minutos sem uso. A primeira requisição depois disso
 > pode levar até 1 a 2 minutos (cold start).
 >
-> 🌐 **API online (deploy):** [https://sobraboa-api-java.onrender.com](https://sobraboa-api-java.onrender.com)                         
+🌐 **API online (deploy):** [https://sobraboa-api-java.onrender.com](https://sobraboa-api-java.onrender.com)                         
 ❤️ **Health check:** [https://sobraboa-api-java.onrender.com/actuator/health](https://sobraboa-api-java.onrender.com/actuator/health)  
 📖 **Swagger:** https://sobraboa-api-java.onrender.com/swagger-ui/index.html#/
 
@@ -74,7 +74,8 @@ A SobraBoa API centraliza o ciclo completo da doação, com autenticação real 
 | Spring Web (MVC) | — |
 | Spring Data JPA (Hibernate) | — |
 | Spring Security + JWT (jjwt) | 0.12.6 |
-| Spring AI (OpenAI starter) | 2.0.1 |
+| Spring AI (starter OpenAI, apontado para o Google Gemini) | 2.0.1 |
+| Google Gemini (`gemini-3.5-flash-lite`, via endpoint compatível com OpenAI) | — |
 | Spring AMQP (RabbitMQ) | gerenciado pelo Spring Boot |
 | Flyway | gerenciado pelo Spring Boot |
 | Bean Validation | — |
@@ -96,7 +97,7 @@ A SobraBoa API centraliza o ciclo completo da doação, com autenticação real 
                                           │
                   ┌───────────────────────┼─────────────────────────┐
                   ▼                       ▼                         ▼
-            PostgreSQL              Provedor de LLM            RabbitMQ
+            PostgreSQL              Google Gemini              RabbitMQ
         (dados + Flyway)        (Spring AI: assistente)   exchange sobraboa.eventos
                                                                    │  doacao.#
                                                                    ▼
@@ -256,8 +257,14 @@ sobrou (por exemplo, "Sobraram 30 pães franceses e 2 bolos, os bolos precisam d
 - Se o provedor estiver fora ou sem chave configurada, a API continua funcionando e apenas este endpoint responde `503`
   ("Cadastre a doação manualmente").
 - A chamada ao modelo fica isolada em uma interface (`SugestaoGateway`), o que permite testar sem acessar o provedor.
-- O provedor e o modelo são configuráveis por variáveis de ambiente (`OPENAI_API_KEY`, `OPENAI_MODEL`). Provedores com
-  API compatível com a da OpenAI funcionam apontando `SPRING_AI_OPENAI_BASE_URL` para o endereço deles.
+- **Provedor:** o assistente usa o **Google Gemini** (modelo padrão `gemini-3.5-flash-lite`). Como o Spring AI é
+  configurado com o starter da OpenAI, a API chama o endpoint do Gemini compatível com o formato da OpenAI
+  (`https://generativelanguage.googleapis.com/v1beta/openai`, rota `/chat/completions`). A chave é a do Google AI Studio
+  e vai na variável `OPENAI_API_KEY` (o nome da variável vem do starter, mas o valor é a chave do Google).
+- O provedor e o modelo são configuráveis por variáveis de ambiente (`OPENAI_API_KEY`, `OPENAI_MODEL`, `AI_BASE_URL` e
+  `AI_COMPLETIONS_PATH`). Para trocar de provedor compatível com a OpenAI (a própria OpenAI, por exemplo), basta mudar
+  esses valores, sem alterar o código. Para a OpenAI, use `AI_BASE_URL=https://api.openai.com`,
+  `AI_COMPLETIONS_PATH=/v1/chat/completions` e `OPENAI_MODEL=gpt-4o-mini`.
 
 ---
 
@@ -385,10 +392,11 @@ A API sobe na porta `8080` com o perfil `dev` (padrão): o Flyway cria o schema,
 - Health: `http://localhost:8080/actuator/health`
 - Painel do RabbitMQ: `http://localhost:15672` (guest / guest)
 
-Para usar o assistente de IA, defina a chave antes de subir:
+Para usar o assistente de IA, defina a chave do Google AI Studio (https://aistudio.google.com/apikey) antes de subir:
 ```bash
-export OPENAI_API_KEY=sua-chave
+export OPENAI_API_KEY=sua-chave-do-google
 ```
+No IntelliJ, adicione `OPENAI_API_KEY` em Run → Edit Configurations → Environment variables.
 Sem a chave, tudo funciona, exceto o endpoint do assistente, que responde `503`.
 
 ### Opção 2 — Tudo no Docker Compose (igual à produção)
@@ -429,8 +437,10 @@ estar no ar.
 | JWT_EXPIRATION_MINUTES | 120 | Validade do token |
 | ADMIN_EMAIL / ADMIN_SENHA | admin@sobraboa.com / Admin@12345 (dev) | Conta do administrador criada na subida. Obrigatórias em `prod` |
 | RESERVA_MINUTOS | 120 | Prazo para retirar após reservar |
-| OPENAI_API_KEY | — | Chave do provedor de LLM (sem ela, só o assistente de IA fica indisponível) |
-| OPENAI_MODEL | gpt-4o-mini | Modelo usado pelo assistente |
+| OPENAI_API_KEY | — | Chave do Google AI Studio (Gemini). Sem ela, só o assistente de IA fica indisponível |
+| OPENAI_MODEL | gemini-3.5-flash-lite | Modelo usado pelo assistente |
+| AI_BASE_URL | https://generativelanguage.googleapis.com/v1beta/openai | Endereço do provedor de IA (compatível com OpenAI) |
+| AI_COMPLETIONS_PATH | /chat/completions | Rota de chat do provedor de IA |
 | CORS_ALLOWED_ORIGINS | * (dev) | Origens permitidas, separadas por vírgula. Obrigatória em `prod` |
 | SWAGGER_ENABLED | false em prod | Liga o Swagger UI e a documentação OpenAPI em produção |
 

@@ -1,13 +1,15 @@
 package br.com.fiap.sobraboaapi.comprovante;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Entity
-@Data
+@Getter
+@Setter
 @Table(name = "comprovante")
 public class Comprovante {
 
@@ -19,4 +21,12 @@ public class Comprovante {
     private BigDecimal pesoTotalKg;
     private OffsetDateTime emitidoEm = OffsetDateTime.now();
     private String urlPdf;
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof Comprovante outra && getId() != null && getId().equals(outra.getId());
+    }
+
+    @Override
+    public int hashCode() { return getClass().hashCode(); }
 }

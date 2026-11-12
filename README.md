@@ -5,6 +5,10 @@ Global Solution 2026/2 — CitizenTech — FIAP | Java Advanced
 
 > A API roda no plano gratuito do Render e "dorme" após cerca de 15 minutos sem uso. A primeira requisição depois disso
 > pode levar até 1 a 2 minutos (cold start).
+>
+> 🌐 **API online (deploy):** [https://sobraboa-api-java.onrender.com](https://sobraboa-api-java.onrender.com)                         
+❤️ **Health check:** [https:/sobraboa-api-java.onrender.com/actuator/health](https://sobraboa-api-java.onrender.com/actuator/health)  
+📖 **Swagger:** [https://sobraboa-api-java.onrender.com/swagger-ui/index.html#/)
 
 ## Sumário
 
